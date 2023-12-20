@@ -62,12 +62,14 @@ def consume():
             message_body = response['Messages'][0]['Body']
             receipt_handle = response['Messages'][0]['ReceiptHandle']
             prediction_id = response['Messages'][0]['MessageId']
+            logger.info(f"\n\n======== Received predction_id in yolo5 from telegram:{prediction_id} ==========\n\n")
 
             logger.info(f'prediction: {prediction_id}. start processing')
 
             message_json = json.loads(message_body)
 
             img_name = message_json.get('image_name')
+            logger.info(f"\n\n====== Image name:{img_name}\n\n")
             chat_id = message_json.get('chat_id')
             original_img_path = f'{img_name}'
 
@@ -111,6 +113,7 @@ def consume():
             # Parse prediction labels and create a summary :-
             pred_summary_path = Path(f'static/data/{prediction_id}/labels/{original_img_path.split(".")[0]}.txt')
             if pred_summary_path.exists():
+
                 with open(pred_summary_path) as f:
                     labels = f.read().splitlines()
                     labels = [line.split(' ') for line in labels]
@@ -151,8 +154,10 @@ def consume():
                     'time': Decimal(str(time.time()))
                 }
                 dbresponse = table.put_item(Item=prediction_summary)
+                logger.info(f"\n\n ======= Prediction_Id without Else:{prediction_id}")
 
             else:
+                logger.info ("\n\n ELSE \n\n")
                 # dbresponse = table.put_item(Item={
                 #     'prediction_id': prediction_id,
                 #     'chat_id': chat_id,
@@ -162,7 +167,8 @@ def consume():
                 #     ' ': [{'class': "", 'cx': 0, 'cy': 0, 'width': 0, 'height': 0}],
                 #     'time': time.time()
                 # })
-                dbresponse = table.put_item(Item={
+
+                prediction_summary = {
                     'prediction_id': prediction_id,
                     'chat_id': chat_id,
                     'there_is_prediction': 'No',
@@ -176,12 +182,15 @@ def consume():
                         'height': Decimal('0')
                     }],
                     'time': Decimal(str(time.time()))
-                })
+                }
+
+                dbresponse = table.put_item(Item=prediction_summary)
+                logger.info(f"\n\n ======= Prediction_Id with Else:{prediction_id}")
 
             sqs_client.delete_message(QueueUrl=queue_name, ReceiptHandle=receipt_handle)
 
             try:
-
+                logger.info(f"\n\n ======= Prediction_Id before sending HTTP GET:{prediction_id}\n\n")
                 if dbresponse.get('ResponseMetadata', {}).get('HTTPStatusCode') == 200:
                     logger.info("Data inserted successfully into DynamoDB.")
 
@@ -192,10 +201,10 @@ def consume():
 
                     if get_response.status_code == 200:
                         logger.info("GET request to Lanabot was successful.")
-                        logger.info("Response:", get_response.json())
+                        # logger.info("Response:", get_response.json())
                     else:
                         logger.info("GET request to Lanabot failed.")
-                        logger.info("Status Code:", get_response.status_code)
+                        # logger.info("Status Code:", get_response.status_code)
 
                 else:
                     logger.info("Data insertion might have failed. Response:", dbresponse)
@@ -203,30 +212,30 @@ def consume():
             except (BotoCoreError, ClientError, Exception) as error:
                 logger.info(f"An error occurred: {error}")
 
-            try:
-                if dbresponse.get('ResponseMetadata', {}).get('HTTPStatusCode') == 200:
-                    logger.info("Data inserted successfully into DynamoDB.")
-
-                    other_flask_server_url = TELEGRAM_APP_URL
-                    params = {'predictionId': prediction_summary['prediction_id']}
-                    get_response = requests.get(other_flask_server_url, params=params, verify=False)
-
-                    if get_response.status_code == 200:
-                        # try:
-                        #     response_json = get_response.json()
-                        #     logger.info("GET request to Lanabot was successful.")
-                        #     logger.info("Response:", response_json)
-                        # except json.JSONDecodeError:
-                        #     logger.error("Failed to parse JSON response.")
-                        logger.info("GET request to Lanabot was successful.")
-
-                    else:
-                        logger.info("GET request to Lanabot failed.")
-                        logger.info("Status Code:", get_response.status_code)
-                else:
-                    logger.info("Data insertion might have failed. Response:", dbresponse)
-            except (BotoCoreError, ClientError, Exception) as error:
-                logger.info(f"An error occurred: {error}")
+            # try:
+            #     if dbresponse.get('ResponseMetadata', {}).get('HTTPStatusCode') == 200:
+            #         logger.info("Data inserted successfully into DynamoDB.")
+            #
+            #         other_flask_server_url = TELEGRAM_APP_URL
+            #         params = {'predictionId': prediction_summary['prediction_id']}
+            #         get_response = requests.get(other_flask_server_url, params=params, verify=False)
+            #
+            #         if get_response.status_code == 200:
+            #             # try:
+            #             #     response_json = get_response.json()
+            #             #     logger.info("GET request to Lanabot was successful.")
+            #             #     logger.info("Response:", response_json)
+            #             # except json.JSONDecodeError:
+            #             #     logger.error("Failed to parse JSON response.")
+            #             logger.info("GET request to Lanabot was successful.")
+            #
+            #         else:
+            #             logger.info("GET request to Lanabot failed.")
+            #             logger.info("Status Code:", get_response.status_code)
+            #     else:
+            #         logger.info("Data insertion might have failed. Response:", dbresponse)
+            # except (BotoCoreError, ClientError, Exception) as error:
+            #     logger.info(f"An error occurred: {error}")
 
 
 if __name__ == "__main__":

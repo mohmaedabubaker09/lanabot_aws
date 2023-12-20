@@ -7,3 +7,6 @@ http://35.178.183.233:8443/
 aws dynamodb scan --table-name lanabot-dynamoDB --projection-expression "prediction_id" | jq -r '.Items[] | .prediction_id.S'
 
 curl "http://35.178.183.233:8443/results/?predictionId=f7302b04-e753-4dc5-bbba-7db1fdb4e8f5"
+
+
+

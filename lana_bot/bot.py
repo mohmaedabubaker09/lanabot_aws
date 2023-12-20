@@ -11,6 +11,8 @@ from openai import OpenAI
 from io import BytesIO
 from PIL import Image
 from botocore.exceptions import BotoCoreError, ClientError
+import time
+import uuid  # Ensure you import the 'uuid' module
 
 
 class Bot:
@@ -34,21 +36,24 @@ class Bot:
         return 'photo' in msg
 
     def download_user_photo(self, msg):
-
         if not self.is_current_msg_photo(msg):
             raise RuntimeError(f'Message content of type \'photo\' expected')
 
         file_info = self.telegram_bot_client.get_file(msg['photo'][-1]['file_id'])
         data = self.telegram_bot_client.download_file(file_info.file_path)
-        folder_name = file_info.file_path.split('/')[0]
 
-        if not os.path.exists(folder_name):
-            os.makedirs(folder_name)
+        # Generate a unique file name using timestamp and UUID
+        timestamp = int(time.time())
+        unique_id = str(uuid.uuid4().hex)
+        file_name = f"{timestamp}_{unique_id}.jpg"
 
-        with open(file_info.file_path, 'wb') as photo:
+        # Save the photo with the generated file name
+        with open(file_name, 'wb') as photo:
             photo.write(data)
 
-        return file_info.file_path
+        return file_name
+
+
 
     def send_photo(self, chat_id, img_path):
         if not os.path.exists(img_path):
@@ -58,6 +63,7 @@ class Bot:
             chat_id,
             InputFile(img_path)
         )
+
 
     def handle_message(self, msg):
 
@@ -220,19 +226,19 @@ class ObjectDetectionBot(Bot):
                 file_name = os.path.basename(image_name)
                 new_filename = self.download_predicted_image_from_s3(file_name)
                 self.send_photo(chat_id, new_filename)
-                self.send_text(chat_id, "Exciting news! ?? A special gift ?? is on its way to you. "
-                                        "Just a little more patience, and it'll be yours. "
-                                        "It's worth the wait! ??")
-                prompt = summary
-                image_url = self.dalle_generate_image(prompt)
-
-                if image_url:
-                    print("Image generated successfully.")
-                    self.save_dalle_image(image_url, "generated_image.jpg")
-                else:
-                    print("Failed to generate image.")
-
-                self.send_photo(chat_id, "generated_image.jpg")
+                # self.send_text(chat_id, "Exciting news! ?? A special gift ?? is on its way to you. "
+                #                         "Just a little more patience, and it'll be yours. "
+                #                         "It's worth the wait! ??")
+                # prompt = summary
+                # image_url = self.dalle_generate_image(prompt)
+                #
+                # if image_url:
+                #     print("Image generated successfully.")
+                #     self.save_dalle_image(image_url, "generated_image.jpg")
+                # else:
+                #     print("Failed to generate image.")
+                #
+                # self.send_photo(chat_id, "generated_image.jpg")
             else:
                 self.send_text(chat_id, "No objects detected in the image.")
         else:
