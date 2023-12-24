@@ -1,0 +1,16 @@
+{
+  "CustomizedMetricSpecification": {
+    "MetricName": "BacklogPerInstance",
+    "Namespace": "LanaBot",
+    "Dimensions": [
+      {
+        "Name": "AutoScalingGroupName",
+        "Value": "lanabot-ec2-yoloV5-AutoScalingGroup"
+      }
+    ],
+    "Statistic": "Average",
+    "Unit": "Count"
+  },
+  "TargetValue": 2,
+  "DisableScaleIn": false
+}

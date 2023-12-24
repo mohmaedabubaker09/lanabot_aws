@@ -1,7 +1,6 @@
 import telebot
 from loguru import logger
 import os
-import time
 from telebot.types import InputFile
 import boto3
 import requests
@@ -12,7 +11,7 @@ from io import BytesIO
 from PIL import Image
 from botocore.exceptions import BotoCoreError, ClientError
 import time
-import uuid  # Ensure you import the 'uuid' module
+import uuid
 
 
 class Bot:

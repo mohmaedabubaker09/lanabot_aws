@@ -1,0 +1,1 @@
+aws autoscaling put-scaling-policy --auto-scaling-group-name lanabot-ec2-yoloV5-AutoScalingGroup --policy-name LanaBot-auto-scaling-policy --policy-type TargetTrackingScaling --target-tracking-configuration file://config.json --region eu-west-2
