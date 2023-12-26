@@ -271,17 +271,6 @@ class ObjectDetectionBot(Bot):
 
         return s3_file_name
 
-    @staticmethod
-    def request_yolo_prediction(s3_url):
-
-        yolo_endpoint = 'http://yolo5:8081/predict'
-        response = requests.post(yolo_endpoint, params={'imgName': s3_url})
-
-        if response.status_code == 200:
-            return response.json()
-        else:
-            response.raise_for_status()
-
     def send_sqs_message(self, message, img_name):
 
         job_data = {
