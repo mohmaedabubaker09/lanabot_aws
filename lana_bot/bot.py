@@ -27,8 +27,9 @@ class Bot:
                                              timeout=60,
                                              certificate=open("lanabot_public.pem", 'r'))
 
-    def send_text(self, chat_id, text):
-        self.telegram_bot_client.send_message(chat_id, text)
+    def send_text(self, chat_id, text, reply_markup=None):
+        message = self.telegram_bot_client.send_message(chat_id, text, reply_markup=reply_markup)
+        return message.message_id
 
     @staticmethod
     def is_current_msg_photo(msg):
@@ -52,8 +53,6 @@ class Bot:
 
         return file_name
 
-
-
     def send_photo(self, chat_id, img_path):
         if not os.path.exists(img_path):
             raise RuntimeError("Image path doesn't exist")
@@ -63,10 +62,9 @@ class Bot:
             InputFile(img_path)
         )
 
-
     def handle_message(self, msg):
 
-        logger.info(f'Incoming message: {msg}')
+        # logger.info(f'Incoming message: {msg}')
         self.send_text(msg['chat']['id'], f'Your original message: {msg["text"]}')
 
 
@@ -77,6 +75,7 @@ class ObjectDetectionBot(Bot):
     def __init__(self, token, telegram_chat_url):
 
         Bot.__init__(self, token, telegram_chat_url)
+        # self.preloaded_gif = self.load_gif('waiting_clock.gif')
 
         secrets_manager_name = "lanabot_secrets"
         region_name = "eu-west-2"
@@ -129,6 +128,8 @@ class ObjectDetectionBot(Bot):
 
         self.sqs = boto3.client('sqs', region_name=self.aws_region)
         self.sqs_url = sqs_url
+        self.summary = ''
+        self.telegram_bot_client.callback_query_handler(func=lambda call: True)(self.handle_callback_query)
 
     def dalle_generate_image(self, prompt):
         try:
@@ -157,31 +158,36 @@ class ObjectDetectionBot(Bot):
 
         # self.send_text(msg['chat']['id'], "Hello, talk to me habibi")
 
-        logger.info(f'Incoming message: {msg}')
+        # logger.info(f'Incoming message: {msg}')
 
         if not (self.is_current_msg_photo(msg)):
-            completion = self.chat_gpt_client.chat.completions.create(
-                model="gpt-4-1106-preview",
-                messages=[
-                    {"role": "system",
-                     "content": "You are a precise, swift, funny, friendly, and to the point assistant. "
-                                "You use emojis. Your name is LanaScoop."},
-                    {"role": "user", "content": msg["text"]}
-                ]
-            )
+            text = msg.get('text')
 
-            response_content = completion.choices[0].message.content if completion.choices[0].message else None
-
-            if response_content:
-                formatted_response = response_content.strip()
-                self.send_text(msg['chat']['id'], formatted_response)
+            if not text:
+                self.send_text(msg['chat']['id'], "Please pay me :)")
             else:
-                error_message = "Sorry, I couldn't generate a response. Please try again."
-                self.send_text(msg['chat']['id'], error_message)
+                completion = self.chat_gpt_client.chat.completions.create(
+                    model="gpt-4-1106-preview",
+                    messages=[
+                        {"role": "system",
+                         "content": "You are a precise, swift, funny, friendly, and to the point assistant. "
+                                    "You use emojis. Your name is LanaScoop."},
+                        {"role": "user", "content": msg["text"]}
+                    ]
+                )
+
+                response_content = completion.choices[0].message.content if completion.choices[0].message else None
+
+                if response_content:
+                    formatted_response = response_content.strip()
+                    self.send_text(msg['chat']['id'], formatted_response)
+                else:
+                    error_message = "Sorry, I couldn't generate a response. Please try again."
+                    self.send_text(msg['chat']['id'], error_message)
         else:
             try:
-                self.send_text(msg['chat']['id'], "Photo received! ?? We're swiftly scanning it... "
-                                                  "Stay tuned for the magic! ?")
+                self.send_text(msg['chat']['id'], "Photo received! 🌟 We're swiftly scanning it... "
+                                                  "Stay tuned for the magic! ✨")
 
                 img_path = self.download_user_photo(msg)
 
@@ -197,8 +203,7 @@ class ObjectDetectionBot(Bot):
             if yolo_results[0] == {'class': "", 'cx': 0, 'cy': 0, 'width': 0, 'height': 0}:
                 self.send_text(chat_id, "Oops, your image has left me scratching my circuits! "
                                         "I must've missed a few updates. "
-                                        "?? Could you send a different image, so "
-                                        "I can try again?")
+                                        "😅 Could you send a different image, so I can try again?")
                 return
 
         # Check if yolo_results is a list and not empty
@@ -218,26 +223,26 @@ class ObjectDetectionBot(Bot):
                         description = f"{count} {class_name}s were detected.\n"
                     detection_descriptions.append(description)
 
-                summary = ''.join(detection_descriptions)
-                self.send_text(chat_id, f"We've scanned your image and here's what we found:\n{summary}")
+                self.summary = ''.join(detection_descriptions)
+                self.send_text(chat_id, f"We've scanned your image and here's what we found:\n{self.summary}")
 
-                self.send_text(chat_id, "One more surprise ?? Please wait ...")
+                self.send_text(chat_id, "One more surprise 🌟")
+                please_wait_id = self.send_text(chat_id, "Please wait ⏳")
+
                 file_name = os.path.basename(image_name)
                 new_filename = self.download_predicted_image_from_s3(file_name)
                 self.send_photo(chat_id, new_filename)
-                # self.send_text(chat_id, "Exciting news! ?? A special gift ?? is on its way to you. "
-                #                         "Just a little more patience, and it'll be yours. "
-                #                         "It's worth the wait! ??")
-                # prompt = summary
-                # image_url = self.dalle_generate_image(prompt)
-                #
-                # if image_url:
-                #     print("Image generated successfully.")
-                #     self.save_dalle_image(image_url, "generated_image.jpg")
-                # else:
-                #     print("Failed to generate image.")
-                #
-                # self.send_photo(chat_id, "generated_image.jpg")
+
+                self.delete_message(chat_id, please_wait_id)
+
+                # Ask user to generate a new image
+                markup = telebot.types.InlineKeyboardMarkup()
+                yes_button = telebot.types.InlineKeyboardButton(text="Yes please !",
+                                                                callback_data="yes_generate")
+                no_button = telebot.types.InlineKeyboardButton(text="No, I'm fine", callback_data="no_generate")
+                markup.add(yes_button, no_button)
+                self.send_text(chat_id, "Would you like me to generate a new image for you?", reply_markup=markup)
+
             else:
                 self.send_text(chat_id, "No objects detected in the image.")
         else:
@@ -272,18 +277,102 @@ class ObjectDetectionBot(Bot):
         return s3_file_name
 
     def send_sqs_message(self, message, img_name):
-
         job_data = {
             "chat_id": message["chat"]["id"],
             "image_name": img_name,
             "telegram_message": message
         }
         job_data_json = json.dumps(job_data)
-
         # message_deduplication_id = hashlib.sha256(job_data_json.encode()).hexdigest()
-
         message_deduplication_id = str(message["message_id"])
+        self.sqs.send_message(QueueUrl=self.sqs_url, MessageBody=job_data_json, MessageGroupId="lana",
+                              MessageDeduplicationId=message_deduplication_id)
 
-        self.sqs.send_message(QueueUrl=self.sqs_url, MessageBody=job_data_json,
-                              MessageGroupId="lana", MessageDeduplicationId=message_deduplication_id)
+    def handle_callback_query(self, callback_query):
+        callback_data = callback_query.get('data')
+        # logger.info(f"\n\n ======== {callback_data}")
+        message = callback_query.get('message')
+        message_id = callback_query['message']['message_id']
+        chat_id = message['chat']['id'] if message else None
+
+        if callback_data == "yes_generate":
+
+            self.delete_message(chat_id, message_id)
+
+            # try:
+            #     self.telegram_bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=None)
+            # except telebot.apihelper.ApiTelegramException as e:
+            #     if e.result_json and e.result_json.get('description') == 'Bad Request: message is not modified':
+            #         logger.info('Message reply markup already removed or not present.')
+            #     else:
+            #         raise
+
+            # gif_message_id = None
+            # gif_url = self.generate_presigned_url(self.Bucket_Name, 'waiting_clock.gif')
+            #
+            # if gif_url:
+            #     gif_message_id = self.send_animation(chat_id, gif_url)
+
+
+            # gif_file_name = 'waiting_clock2.gif'
+            # gif_message_id = self.send_local_animation(chat_id, gif_file_name)
+            # gif_message_id = self.send_preloaded_animation(chat_id)
+
+            please_wait_id = self.send_text(chat_id, "Please wait ⏳")
+
+            prompt = self.summary
+            image_url = self.dalle_generate_image(prompt)
+
+            if image_url:
+                self.save_dalle_image(image_url, "generated_image.jpg")
+                self.send_photo(chat_id, "generated_image.jpg")
+            else:
+                self.send_text(chat_id, "Failed to generate image.")
+
+            # if gif_message_id:
+            #     self.delete_message(chat_id, gif_message_id)
+
+            self.delete_message(chat_id, please_wait_id)
+
+        elif callback_data == "no_generate":
+            self.delete_message(chat_id, message_id)
+            # self.telegram_bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=None)
+            self.send_text(chat_id, "Alright, let me know if you need anything else!")
+
+    def generate_presigned_url(self, bucket_name, object_name, expiration=3600):
+        try:
+            response = self.s3_client.generate_presigned_url('get_object', Params={'Bucket': bucket_name,
+                                                                                   'Key': object_name},
+                                                             ExpiresIn=expiration)
+        except ClientError as e:
+            logger.error(e)
+            return None
+        return response
+
+    def send_animation(self, chat_id, gif_url):
+        message = self.telegram_bot_client.send_animation(chat_id, gif_url)
+        return message.message_id
+
+    def delete_message(self, chat_id, message_id):
+        try:
+            self.telegram_bot_client.delete_message(chat_id, message_id)
+        except Exception as e:
+            logger.error(f"Failed to delete message: {e}")
+
+    # def send_local_animation(self, chat_id, gif_file_name):
+    #     gif_file_path = os.path.join(os.path.dirname(__file__), gif_file_name)
+    #     with open(gif_file_path, 'rb') as gif:
+    #         message = self.telegram_bot_client.send_animation(chat_id, gif)
+    #         return message.message_id
+
+    # @staticmethod
+    # def load_gif(gif_file_name):
+    #     gif_file_path = os.path.join(os.path.dirname(__file__), gif_file_name)
+    #     with open(gif_file_path, 'rb') as gif:
+    #         return gif.read()
+    #
+    # def send_preloaded_animation(self, chat_id):
+    #     message = self.telegram_bot_client.send_animation(chat_id, self.preloaded_gif)
+    #     return message.message_id
+
 # That's all folks !

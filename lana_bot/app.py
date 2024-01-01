@@ -19,13 +19,20 @@ def setup_routes():
     @app.route(f'/{TELEGRAM_TOKEN}/', methods=['POST'])
     def webhook():
         req = request.get_json()
-        bot.handle_message(req['message'])
+        # logger.info(f"Received request: {req}")  # Log the incoming request for debugging
+        if 'message' in req:
+            bot.handle_message(req['message'])
+        elif 'callback_query' in req:
+            bot.handle_callback_query(req['callback_query'])
+        else:
+            logger.warning("Received unknown type of update")
+
         return 'Ok'
 
     @app.route(f'/results/', methods=['GET'])
     def results():
         prediction_id = request.args.get('predictionId')
-        logger.info(f"Received Prediction ID: {prediction_id}")
+        # logger.info(f"Received Prediction ID: {prediction_id}")
 
         if not prediction_id:
             return 'Prediction ID not provided', 400
@@ -43,10 +50,10 @@ def setup_routes():
             yolo_results = item.get('labels')
             image_name = item.get('original_img_path')
 
-            logger.info(f"chat_id: {chat_id}")
-            logger.info(f"yolo_results: {yolo_results}")
-            logger.info(f"image_name: {image_name}")
-            logger.info(f"yolo_results: {yolo_results}")
+            # logger.info(f"chat_id: {chat_id}")
+            # logger.info(f"yolo_results: {yolo_results}")
+            # logger.info(f"image_name: {image_name}")
+            # logger.info(f"yolo_results: {yolo_results}")
 
             bot.continue_image_chat(chat_id, yolo_results, image_name)
             return 'Ok'

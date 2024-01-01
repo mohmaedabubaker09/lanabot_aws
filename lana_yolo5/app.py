@@ -62,14 +62,14 @@ def consume():
             message_body = response['Messages'][0]['Body']
             receipt_handle = response['Messages'][0]['ReceiptHandle']
             prediction_id = response['Messages'][0]['MessageId']
-            logger.info(f"\n\n======== Received predction_id in yolo5 from telegram:{prediction_id} ==========\n\n")
+            # logger.info(f"\n\n======== Received predction_id in yolo5 from telegram:{prediction_id} ==========\n\n")
 
-            logger.info(f'prediction: {prediction_id}. start processing')
+            # logger.info(f'prediction: {prediction_id}. start processing')
 
             message_json = json.loads(message_body)
 
             img_name = message_json.get('image_name')
-            logger.info(f"\n\n====== Image name:{img_name}\n\n")
+            # logger.info(f"\n\n====== Image name:{img_name}\n\n")
             chat_id = message_json.get('chat_id')
             original_img_path = f'{img_name}'
 
@@ -82,7 +82,7 @@ def consume():
                     logger.error(lana_exception)
                     raise
 
-            logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
+            # logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
 
             # Predicts the objects in the image
             run(
@@ -94,7 +94,7 @@ def consume():
                 save_txt=True
             )
 
-            logger.info(f'prediction: {prediction_id}/{original_img_path}. done')
+            # logger.info(f'prediction: {prediction_id}/{original_img_path}. done')
 
             # This is the path for the predicted image with labels
             # The predicted image typically includes bounding boxes drawn around the
@@ -132,7 +132,7 @@ def consume():
                         'height': Decimal(str(l[4])),
                     } for l in labels]
 
-                logger.info(f'prediction: {prediction_id}/{original_img_path}. prediction summary:\n\n{labels}')
+                # logger.info(f'prediction: {prediction_id}/{original_img_path}. prediction summary:\n\n{labels}')
                 predicted_img_path = str(Path(f'static/data/{prediction_id}/{original_img_path}'))
 
                 # prediction_summary = {
@@ -154,10 +154,10 @@ def consume():
                     'time': Decimal(str(time.time()))
                 }
                 dbresponse = table.put_item(Item=prediction_summary)
-                logger.info(f"\n\n ======= Prediction_Id without Else:{prediction_id}")
+                # logger.info(f"\n\n ======= Prediction_Id without Else:{prediction_id}")
 
             else:
-                logger.info ("\n\n ELSE \n\n")
+                # logger.info ("\n\n ELSE \n\n")
                 # dbresponse = table.put_item(Item={
                 #     'prediction_id': prediction_id,
                 #     'chat_id': chat_id,
@@ -185,15 +185,15 @@ def consume():
                 }
 
                 dbresponse = table.put_item(Item=prediction_summary)
-                logger.info(f"\n\n ======= Prediction_Id with Else:{prediction_id}")
+                # logger.info(f"\n\n ======= Prediction_Id with Else:{prediction_id}")
 
             # time.sleep(45)
             sqs_client.delete_message(QueueUrl=queue_name, ReceiptHandle=receipt_handle)
 
             try:
-                logger.info(f"\n\n ======= Prediction_Id before sending HTTP GET:{prediction_id}\n\n")
+                # logger.info(f"\n\n ======= Prediction_Id before sending HTTP GET:{prediction_id}\n\n")
                 if dbresponse.get('ResponseMetadata', {}).get('HTTPStatusCode') == 200:
-                    logger.info("Data inserted successfully into DynamoDB.")
+                    # logger.info("Data inserted successfully into DynamoDB.")
 
                     other_flask_server_url = TELEGRAM_APP_URL + "/results/"
                     params = {'predictionId': prediction_summary['prediction_id']}
