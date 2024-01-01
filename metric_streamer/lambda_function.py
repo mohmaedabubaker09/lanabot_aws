@@ -2,6 +2,7 @@ import boto3
 import json
 import os
 
+
 def lambda_handler(event, context):
     secrets_client = boto3.client('secretsmanager')
     secret_name = os.environ['CONFIG_SECRET_NAME']
@@ -56,3 +57,4 @@ def lambda_handler(event, context):
         'statusCode': 200,
         'body': f'Successfully sent backlog per instance metric: {backlog_per_instance}'
     }
+#
