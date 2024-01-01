@@ -131,29 +131,6 @@ class ObjectDetectionBot(Bot):
         self.summary = ''
         self.telegram_bot_client.callback_query_handler(func=lambda call: True)(self.handle_callback_query)
 
-    def dalle_generate_image(self, prompt):
-        try:
-            response = self.chat_gpt_client.images.generate(
-                model="dall-e-3",
-                prompt=f"{prompt}",
-                size="1024x1024",
-                quality="standard",
-                n=1,
-            )
-            return response.data[0].url
-        except Exception as e:
-            print(f"An error occurred while generating image in DALL-E: {e}")
-
-    @staticmethod
-    def save_dalle_image(image_url, file_path):
-        try:
-            response = requests.get(image_url)
-            image = Image.open(BytesIO(response.content))
-            image.save(file_path)
-            print(f"Image saved to {file_path}")
-        except Exception as e:
-            print(f"Failed to save image: {e}")
-
     def handle_message(self, msg):
 
         # self.send_text(msg['chat']['id'], "Hello, talk to me habibi")
@@ -298,26 +275,6 @@ class ObjectDetectionBot(Bot):
         if callback_data == "yes_generate":
 
             self.delete_message(chat_id, message_id)
-
-            # try:
-            #     self.telegram_bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=None)
-            # except telebot.apihelper.ApiTelegramException as e:
-            #     if e.result_json and e.result_json.get('description') == 'Bad Request: message is not modified':
-            #         logger.info('Message reply markup already removed or not present.')
-            #     else:
-            #         raise
-
-            # gif_message_id = None
-            # gif_url = self.generate_presigned_url(self.Bucket_Name, 'waiting_clock.gif')
-            #
-            # if gif_url:
-            #     gif_message_id = self.send_animation(chat_id, gif_url)
-
-
-            # gif_file_name = 'waiting_clock2.gif'
-            # gif_message_id = self.send_local_animation(chat_id, gif_file_name)
-            # gif_message_id = self.send_preloaded_animation(chat_id)
-
             please_wait_id = self.send_text(chat_id, "Please wait ⏳")
 
             prompt = self.summary
@@ -329,9 +286,6 @@ class ObjectDetectionBot(Bot):
             else:
                 self.send_text(chat_id, "Failed to generate image.")
 
-            # if gif_message_id:
-            #     self.delete_message(chat_id, gif_message_id)
-
             self.delete_message(chat_id, please_wait_id)
 
         elif callback_data == "no_generate":
@@ -339,15 +293,28 @@ class ObjectDetectionBot(Bot):
             # self.telegram_bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=None)
             self.send_text(chat_id, "Alright, let me know if you need anything else!")
 
-    def generate_presigned_url(self, bucket_name, object_name, expiration=3600):
+    def dalle_generate_image(self, prompt):
         try:
-            response = self.s3_client.generate_presigned_url('get_object', Params={'Bucket': bucket_name,
-                                                                                   'Key': object_name},
-                                                             ExpiresIn=expiration)
-        except ClientError as e:
-            logger.error(e)
-            return None
-        return response
+            response = self.chat_gpt_client.images.generate(
+                model="dall-e-3",
+                prompt=f"{prompt}",
+                size="1024x1024",
+                quality="standard",
+                n=1,
+            )
+            return response.data[0].url
+        except Exception as e:
+            logger.info(f"An error occurred while generating image in DALL-E: {e}")
+
+    @staticmethod
+    def save_dalle_image(image_url, file_path):
+        try:
+            response = requests.get(image_url)
+            image = Image.open(BytesIO(response.content))
+            image.save(file_path)
+            # logger.info(f"Image saved to {file_path}")
+        except Exception as e:
+            logger.info(f"Failed to save image: {e}")
 
     def send_animation(self, chat_id, gif_url):
         message = self.telegram_bot_client.send_animation(chat_id, gif_url)
@@ -359,20 +326,5 @@ class ObjectDetectionBot(Bot):
         except Exception as e:
             logger.error(f"Failed to delete message: {e}")
 
-    # def send_local_animation(self, chat_id, gif_file_name):
-    #     gif_file_path = os.path.join(os.path.dirname(__file__), gif_file_name)
-    #     with open(gif_file_path, 'rb') as gif:
-    #         message = self.telegram_bot_client.send_animation(chat_id, gif)
-    #         return message.message_id
-
-    # @staticmethod
-    # def load_gif(gif_file_name):
-    #     gif_file_path = os.path.join(os.path.dirname(__file__), gif_file_name)
-    #     with open(gif_file_path, 'rb') as gif:
-    #         return gif.read()
-    #
-    # def send_preloaded_animation(self, chat_id):
-    #     message = self.telegram_bot_client.send_animation(chat_id, self.preloaded_gif)
-    #     return message.message_id
 
 # That's all folks !

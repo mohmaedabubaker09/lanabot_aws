@@ -1,6 +1,6 @@
 import boto3
 import json
-import random
+# import random
 import uuid
 import os
 
