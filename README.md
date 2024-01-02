@@ -10,7 +10,7 @@ LanaBot is an AI-driven Telegram bot that enhances user interaction through AI-p
 - **Scalable and Resilient Architecture**: Efficiently hosted on AWS with load balancing and auto-scaling, ensuring high availability.
 
 ## Architecture
-- **AWS Ecosystem Integration**: Incorporates ALB, Secrets Manager, ECR, EC2, S3, SQS FIFO, DynamoDB, Lambda and EventBridge, Cloud Watch and Auto Scaling Group for efficient scaling and handling varying loads.
+**AWS Ecosystem Integration**: Incorporates ALB, Secrets Manager, ECR, EC2, S3, SQS FIFO, DynamoDB, Lambda and EventBridge, Cloud Watch and Auto Scaling Group for efficient scaling and handling varying loads.
   - **Core Components**:
     - **EC2 Instances**: Hosts the Telegram bot and YOLO object detection services.
     - **Docker Containers**: Provides consistent environments across services.
